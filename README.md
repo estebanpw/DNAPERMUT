@@ -6,11 +6,11 @@ DNAPERMUT is a method to compute all partially-ordered permutations of `n` seque
 
 First, clone this repository by issuing `git clone https://github.com/estebanpw/DNAPERMUT`. Then, in the same folder, proceed to install `seqAn3` as follows.
 
-DNAPERMUT requires [seqAn3](https://github.com/seqan/seqan3). Make sure to install it in the same folder as the cloned repository of DNAPERMUT. You can find installation instructions [here](https://docs.seqan.de/seqan/3-master-user/setup.html). 
+DNAPERMUT requires [seqAn3](https://github.com/seqan/seqan3). Make sure to install it in the same folder as the cloned repository of `DNAPERMUT`. You can find installation instructions [here](https://docs.seqan.de/seqan/3-master-user/setup.html). 
 
 Once `seqAn3`is properly installed your directory structure should look like this:
 
-`
+```
 .
 ├── CMakeCache.txt
 ├── CMakeFiles
@@ -26,7 +26,7 @@ Once `seqAn3`is properly installed your directory structure should look like thi
     ├── build_system
     ├── CHANGELOG.md
     ...
-`
+```
 
 After downloading `seqAn3` simply run the following command to compile DNAPERMUT:
 
