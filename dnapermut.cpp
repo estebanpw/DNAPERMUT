@@ -13,9 +13,17 @@ using namespace seqan3;
 
 const int MOD = 100003;
 
+// Enum identifying each of the possible groupings within braids
 enum Braid { Single, Double, TripleLinear, TripleBranched, Longer };
 
-void read_fasta(const char *filename , vector<string> * sequences)
+/* 
+* Function read_fasta
+* Reads an input fasta file where each sequence has one numeric identifier and one string without endlines
+* @param filename          String name containing the path of the fasta file
+* @param sequences         A pointer to an std::vector in which only the dna strings will be stored
+* @returns                 Nothing
+*/
+void read_fasta(const char * filename , vector<string> * sequences)
 {
     ifstream infile(filename);
     string line;
@@ -29,6 +37,16 @@ void read_fasta(const char *filename , vector<string> * sequences)
     infile.close();
 }
 
+/* 
+* Function find_substrings
+* Uses an FM-index to compute matches and partial matches (substrings) between query and reference. In this
+* particular case, the query and the reference are the same data.
+* @param sequences         Pointer to std::vector containing the sequences
+* @param dependencies      Pointer to an array of std::set of size n_seqs, such that each element contains the id of the strings for which it is a substring
+* @param relationships     Same as above but including reflexive dependencies (if seq 0 comes before seq 2, then 2 is also related to 0)
+* @param expanded          Copy of relationships for posterior use
+* @returns                 Nothing
+*/
 void find_substrings(vector<string> * sequences, set<unsigned> * dependencies, set<unsigned> * relationships, set<unsigned> * expanded)
 {
     fm_index index{*sequences};
@@ -61,13 +79,24 @@ void find_substrings(vector<string> * sequences, set<unsigned> * dependencies, s
                 expanded[hit.reference_id()].emplace(current_string);
 
             }
-            
-        
         }
         ++current_string;
     }
 }
 
+/* 
+* Function rec_expansion_sets
+* A recursive function that expands dependencies, i.e. given a list of reflexive relationships, rec_expansion_sets will
+* connect together all elements (transitive property) that share a dependency, such that if seq 0 comes before 2 and 3, 
+* and seq 2 comes before 4, then seq 0, 2, 3 and 4 are related.
+* @param it                An iterator to the currently in-expansion std::set
+* @param current_row       Point to a row (with reflexive dependencies) where the current iterator is traversing
+* @param relationships     Pointer to the table containing all reflexive dependencies
+* @param visited           A pointer to an std::set containing which sequences have already been visited (prevents cycles)
+* @param expanded          Pointer to the table containing all expanded relationships (transitive)
+* @param original          The current sequence for which the expansion has been launched
+* @returns                 Nothing
+*/
 void rec_expansion_sets(set<unsigned>::iterator it, set<unsigned> * current_row, 
                         set<unsigned> * relationships, set<unsigned> * visited, 
                         set<unsigned> * expanded, unsigned original)
@@ -83,6 +112,16 @@ void rec_expansion_sets(set<unsigned>::iterator it, set<unsigned> * current_row,
     rec_expansion_sets(++it, current_row, relationships, visited, expanded, original);
 }
 
+/* 
+* Function detect_braid_type
+* Given an expanded relationships table, this function returns the type of braid (or grouping) for a given sequence. 
+* For instance, if the sequence is related to 2 other sequences, detect_braid_type will return the type of braid which can
+* be either 3 sequences with linear relationships (TripleLinear) or 2 sequences related to 1, or viceversa (TripleBranched)
+* @param element           The current sequence for which the grouping or braid is being detected
+* @param dependencies      Pointer to the table containing all dependencies
+* @param expanded          Pointer to the table containing all expanded relationships (reflexive and transitive)
+* @returns                 The Braid type up to 4 different types
+*/
 Braid detect_braid_type(unsigned element, set<unsigned> * dependencies, set<unsigned> * expanded)
 {
 
@@ -94,9 +133,9 @@ Braid detect_braid_type(unsigned element, set<unsigned> * dependencies, set<unsi
         break;
         case 1: return Double;
         break;
-        case 2: { 
-                    // if 2 dependencies => tripleBranched, if 3 dependencies (transitive property) => TripleLinear
-                    
+        case 2: {
+                    // All cases are straight-forward except for the triple one
+                    // Which can be linear (1->2->3) or branch-like (1->2, 1->3 or 1->3, 2->3)
                     unsigned intracount = dependencies[element].size();
                     set<unsigned>::iterator expit;
                     for(expit = expanded[element].begin(); expit != expanded[element].end(); ++expit)
@@ -112,6 +151,14 @@ Braid detect_braid_type(unsigned element, set<unsigned> * dependencies, set<unsi
     }
 }
 
+/* 
+* Function binomial
+* A recursive function to calculate the binomial coefficient efficiently. It takes advantage of the recursive formula:
+* (n, k) = (n / k) * (n-1, k-1) which enables to calculate combinations much quicker while avoiding overflow.
+* @param n                 The number of items to choose from
+* @param k                 The number of items chosen
+* @returns                 The number of combinations
+*/
 uint64_t binomial(uint64_t n, uint64_t k)
 {
     if(k > n)
@@ -123,7 +170,16 @@ uint64_t binomial(uint64_t n, uint64_t k)
     return n * binomial(n-1, k-1) / k;
 }
 
-
+/* 
+* Function filter_permutation
+* A function that filters permutations (when generated with Heap's algorithm or from a different source) 
+* which only requires O(2p) time to accept or discard a permutation (where p is the length of the permutation)
+* @param a                 Pointer to an array containing the permutation
+* @param n                 The length of the permutation
+* @param dependencies      Pointer to the table containing all dependencies
+* @param n_seqs            The number of sequences (used for translation into lookup table)
+* @returns                 True or False depending if the permutation evaluated is accepted or discarded
+*/
 bool inline filter_permutation(unsigned * a, unsigned n, set<unsigned> * dependencies, unsigned n_seqs)
 {
     // Create key-value dictionary indexed by the string where value is the position in the sequence
@@ -142,6 +198,16 @@ bool inline filter_permutation(unsigned * a, unsigned n, set<unsigned> * depende
     return true;
 }
 
+/* 
+* Function heap_iterate_permutation_filtering
+* A function that generates all possible permutations of a given array and that filters them accordingly to a set
+* of dependencies. This function is to be used only when the braid can not be computed analyitically.
+* @param a                 Pointer to an array containing the permutation
+* @param n                 The length of the permutation
+* @param dependencies      Pointer to the table containing all dependencies
+* @param n_seqs            The number of sequences (used for translation into lookup table)
+* @returns                 The number of accepted permutations
+*/
 uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsigned> * dependencies, unsigned n_seqs)
 {
 
@@ -149,11 +215,7 @@ uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsign
     uint64_t t_perm = 0;
 
     for(unsigned i=0; i<n; i++)
-    {
         c[i] = 0;
-        //cout << a[i] << ",";
-    }
-    //cout << endl;
 
     if(filter_permutation(a, n, dependencies, n_seqs))
         ++t_perm;
@@ -168,8 +230,6 @@ uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsign
             else
                 { unsigned x = a[c[i]]; a[c[i]] = a[i]; a[i] = x; }
             
-            //for(unsigned j=0; j<n; j++) cout << a[j] << ",";
-            //cout << endl;
             if(filter_permutation(a, n, dependencies, n_seqs))
                 ++t_perm;
             
@@ -185,6 +245,17 @@ uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsign
     return t_perm;
 }
 
+/* 
+* Function calculate_permutations
+* This function computes the number of permutations by making use of the principle of multiplication. This means
+* that all braids will be calculated independently and then multiplied, thus reducing complexity from O(n!) to 
+* O(k1! + k2! + k3! + ... kj!). Additionally, braids of size < 4 will be computed analytically in closed form without
+* requiring generating any permutation at all. 
+* @param n_seqs            The number of sequences
+* @param dependencies      Pointer to the table containing all dependencies
+* @param expanded          Pointer to the table containing all expanded relationships (reflexive and transitive)
+* @returns                 The total number of permutations
+*/
 uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, set<unsigned> * expanded)
 {
     uint64_t t_perm = 1;
@@ -238,42 +309,17 @@ uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, s
     return t_perm;
 }
 
-void heap_iterate_permutation(unsigned * a, unsigned n)
-{
-
-    unsigned c[n];
-
-    for(unsigned i=0; i<n; i++)
-    {
-        c[i] = 0;
-        //cout << a[i] << ",";
-    }
-    //cout << endl;
-    
-
-    unsigned i = 0;
-    while(i < n)
-    {
-        if(c[i] < i)
-        {
-            if(i % 2 == 0)
-                { unsigned x = a[0]; a[0] = a[i]; a[i] = x; }
-            else
-                { unsigned x = a[c[i]]; a[c[i]] = a[i]; a[i] = x; }
-            
-            //for(unsigned j=0; j<n; j++) cout << a[j] << ",";
-            //cout << endl;
-            ++c[i];
-            i = 0;
-        }
-        else
-        {
-            c[i] = 0;
-            ++i;
-        }
-    }
-}
-
+/* 
+* Function main
+* This program takes as input a fasta file and generates all permutations following the substring constraint, i.e.
+* a sequence that is subsequence of another one, must appear before in all permutations. To do so, this program 
+* first identifies which sequences are related to others and isolates them in "braids" or "groupings". Once so, 
+* each braid or group can be calculated independently (thus reducing complexity by a factor of the size of each group).
+* In fact, some of these groups are computed in closed form, meaning that permutations do not need to be calculated.
+* @param argc              System arg - number of arguments
+* @param argv              System arg - actual arguments
+* @returns                 0 if program exited correctly, -1 otherwise
+*/
 int main(int argc, char **argv) {
 
 
@@ -288,15 +334,17 @@ int main(int argc, char **argv) {
     set<unsigned> * expanded      = new set<unsigned>[sequences.size()];
     find_substrings(&sequences, dependencies, relationships, expanded);
 
+    // Writes dependencies in graph format (V,V)
+    unsigned n_substrings = 0;
     for(unsigned i=0; i<sequences.size(); i++){
         set<unsigned>::iterator it;
         for(it = dependencies[i].begin(); it != dependencies[i].end(); ++it){
-            cout << i << " " << *it << endl;
+            //cout << i << " " << *it << endl;
+            ++n_substrings;
         }
     }
 
-
-
+    // Prints table of relatedness
     for(unsigned i=0; i<sequences.size(); i++){
         set<unsigned>::iterator it;
         cout << "### Seq " << i << " is related to:\n";
@@ -305,7 +353,6 @@ int main(int argc, char **argv) {
         }
         cout << "\n";
     }
-
 
     // Expand relationships to find lose braids
     for(unsigned i=0; i<sequences.size(); i++)
@@ -316,8 +363,12 @@ int main(int argc, char **argv) {
         rec_expansion_sets(it, &relationships[i], relationships, visited, expanded, i);
     }
 
+    // Finds longest chain and prints expansion table
+    unsigned longest_chain = 0;
     cout << "Expansions: \n";
     for(unsigned i=0; i<sequences.size(); i++){
+        if((expanded[i].size() + 1) > longest_chain)
+            longest_chain = expanded[i].size() + 1;
         set<unsigned>::iterator it;
         cout << "### Seq " << i << " is expanded to:\n";
         for(it = expanded[i].begin(); it != expanded[i].end(); ++it){
@@ -326,15 +377,18 @@ int main(int argc, char **argv) {
         cout << "\n";
     }
     
+    // Prints the type of braids detected
     cout << "\n\n\nBRAIDS\n";
-    
     for(unsigned i=0; i<sequences.size(); i++){
         cout << "Seq " << i << " is type: " << detect_braid_type(i, dependencies, expanded) << endl;
     }
     
     uint64_t t_perm = calculate_permutations(sequences.size(), dependencies, expanded);
 
-    cout << "Total permutations: " << t_perm << endl;
+    cout << "Number of substrings:      " << n_substrings << endl;
+    cout << "Longest substring chain:   " << longest_chain << endl;
+    cout << "Total permutations:        " << t_perm << endl;
+
 
     delete [] relationships;
     delete [] dependencies;
