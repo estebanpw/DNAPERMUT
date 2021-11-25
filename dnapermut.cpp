@@ -123,6 +123,68 @@ uint64_t binomial(uint64_t n, uint64_t k)
     return n * binomial(n-1, k-1) / k;
 }
 
+
+bool inline filter_permutation(unsigned * a, unsigned n, set<unsigned> * dependencies, unsigned n_seqs)
+{
+    // Create key-value dictionary indexed by the string where value is the position in the sequence
+    // This way we only have to traverse the permutation twice: once now and the other to check dependencies
+    unsigned keypos[n_seqs]; // Note: right now translation into key-pos is done using O(n_seqs) memory. 
+    for(unsigned i=0; i<n; i++) keypos[a[i]] = i;
+
+    for(unsigned i=0; i<n; i++)
+    {
+        unsigned current = a[i];
+        set<unsigned>::iterator deps;
+        for(deps = dependencies[current].begin(); deps != dependencies[current].end(); ++deps)
+            if(keypos[current] > keypos[*deps])
+                return false;
+    }
+    return true;
+}
+
+uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsigned> * dependencies, unsigned n_seqs)
+{
+
+    unsigned c[n];
+    uint64_t t_perm = 0;
+
+    for(unsigned i=0; i<n; i++)
+    {
+        c[i] = 0;
+        //cout << a[i] << ",";
+    }
+    //cout << endl;
+
+    if(filter_permutation(a, n, dependencies, n_seqs))
+        ++t_perm;
+
+    unsigned i = 0;
+    while(i < n)
+    {
+        if(c[i] < i)
+        {
+            if(i % 2 == 0)
+                { unsigned x = a[0]; a[0] = a[i]; a[i] = x; }
+            else
+                { unsigned x = a[c[i]]; a[c[i]] = a[i]; a[i] = x; }
+            
+            //for(unsigned j=0; j<n; j++) cout << a[j] << ",";
+            //cout << endl;
+            if(filter_permutation(a, n, dependencies, n_seqs))
+                ++t_perm;
+            
+            ++c[i];
+            i = 0;
+        }
+        else
+        {
+            c[i] = 0;
+            ++i;
+        }
+    }
+    return t_perm;
+}
+
 uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, set<unsigned> * expanded)
 {
     uint64_t t_perm = 1;
@@ -150,6 +212,18 @@ uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, s
             else
             {
                 // Generate permutations and filter them
+                unsigned n = (unsigned) expanded[i].size() + 1;
+                unsigned a[n];
+                a[0] = i;
+                set<unsigned>::iterator it;
+                unsigned j = 1;
+                for(it = expanded[i].begin(); it != expanded[i].end(); ++it)
+                {
+                    a[j] = *it;
+                    ++j;
+                }
+                t_perm *= heap_iterate_permutation_filtering(a, n, dependencies, n_seqs);
+                remaining -= (uint64_t) n;
             }
 
             // Add nodes from braid to visited so that we do not count them again
@@ -162,26 +236,6 @@ uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, s
     }
 
     return t_perm;
-}
-
-void heap_rec_permutation(unsigned * a, unsigned size, unsigned n)
-{
-    if(size == 1)
-    {
-        //for(int i=0; i<n; i++) cout << a[i] << ",";
-        //cout << endl;
-        return;
-    }
-
-    for(unsigned i = 0; i < size; i++)
-    {
-        heap_rec_permutation(a, size - 1, n);
-
-        if(size % 2 == 1)
-            swap(a[0], a[size - 1]);
-        else
-            swap(a[i], a[size - 1]);
-    }
 }
 
 void heap_iterate_permutation(unsigned * a, unsigned n)
@@ -233,6 +287,15 @@ int main(int argc, char **argv) {
     set<unsigned> * relationships = new set<unsigned>[sequences.size()];
     set<unsigned> * expanded      = new set<unsigned>[sequences.size()];
     find_substrings(&sequences, dependencies, relationships, expanded);
+
+    for(unsigned i=0; i<sequences.size(); i++){
+        set<unsigned>::iterator it;
+        for(it = dependencies[i].begin(); it != dependencies[i].end(); ++it){
+            cout << i << " " << *it << endl;
+        }
+    }
+
+
 
     for(unsigned i=0; i<sequences.size(); i++){
         set<unsigned>::iterator it;
