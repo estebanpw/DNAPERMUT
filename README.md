@@ -8,31 +8,24 @@ First, clone this repository by issuing `git clone https://github.com/estebanpw/
 
 DNAPERMUT requires [seqAn3](https://github.com/seqan/seqan3). Make sure to install it in the same folder as the cloned repository of `DNAPERMUT`. You can find installation instructions [here](https://docs.seqan.de/seqan/3-master-user/setup.html). 
 
-Once `seqAn3`is properly installed your directory structure should look like this:
+Once `seqAn3`is downloaded, your directory structure should look like this:
 
 ```
-.
-├── CMakeCache.txt
-├── CMakeFiles
-├── cmake_install.cmake
 ├── CMakeLists.txt
-...
-...
 ├── dnapermut.cpp
-├── Makefile
-...
 ├── README.md
 └── seqan3
     ├── build_system
     ├── CHANGELOG.md
     ...
+    └── test
 ```
 
-After downloading `seqAn3` simply run the following command to compile DNAPERMUT:
+Now simply run the following command to compile DNAPERMUT:
 
 `cmake -DCMAKE_BUILD_TYPE=Release .`
 
-Now you can compile `DNAPERMUT` by firing:
+If all dependencies were met, proceed to compile `DNAPERMUT` by firing:
 
 `make`
 
