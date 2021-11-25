@@ -1,0 +1,4 @@
+# DNAPERMUT
+
+Use:
+`./dnapermut <fasta>`
