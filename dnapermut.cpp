@@ -11,7 +11,7 @@
 using namespace std;
 using namespace seqan3;
 
-const int MOD = 100003;
+const uint64_t MOD = 100003;
 
 // Enum identifying each of the possible groupings within braids
 enum Braid { Single, Double, TripleLinear, TripleBranched, Longer };
@@ -152,6 +152,29 @@ Braid detect_braid_type(unsigned element, set<unsigned> * dependencies, set<unsi
 }
 
 /* 
+* Function mod_of_mult
+* A recursive function to calculate the modulo of a large multiplication ((a*b) % m). It proceeds by splitting each
+* multiplication into smaller parts that can be added together while performing the modulo at the same time.
+* @param a                 The first multiplication operand
+* @param b                 The second multiplication operand
+* @param m                 The modulo operand
+* @returns                 The modulo m of the multiplication of a times b
+*/
+uint64_t mod_of_mult(uint64_t a, uint64_t b, uint64_t m) 
+{ 
+    uint64_t res = 0;
+    a = a % m;
+    while(b > 0) 
+    { 
+        if (b % 2 == 1) 
+            res = (res + a) % m; 
+        a = (a * 2) % m; 
+        b /= 2; 
+    } 
+    return res % m; 
+}
+
+/* 
 * Function binomial
 * A recursive function to calculate the binomial coefficient efficiently. It takes advantage of the recursive formula:
 * (n, k) = (n / k) * (n-1, k-1) which enables to calculate combinations much quicker while avoiding overflow.
@@ -254,7 +277,7 @@ uint64_t heap_iterate_permutation_filtering(unsigned * a, unsigned n, set<unsign
 * @param n_seqs            The number of sequences
 * @param dependencies      Pointer to the table containing all dependencies
 * @param expanded          Pointer to the table containing all expanded relationships (reflexive and transitive)
-* @returns                 The total number of permutations
+* @returns                 The total number of permutations modulo 100003
 */
 uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, set<unsigned> * expanded)
 {
@@ -269,16 +292,28 @@ uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, s
             Braid b = detect_braid_type(i, dependencies, expanded);
 
             if(b == Single)
-                { t_perm *= binomial(remaining, 1); remaining -= 1; }
+            {
+                t_perm = mod_of_mult(t_perm, binomial(remaining, 1), MOD);
+                remaining -= 1; 
+            }
 
             else if(b == Double)
-                { t_perm *= binomial(remaining, 2); remaining -= 2; }
+            {
+                t_perm = mod_of_mult(t_perm, binomial(remaining, 2), MOD); 
+                remaining -= 2; 
+            }
 
             else if(b == TripleLinear)
-                { t_perm *= binomial(remaining, 3); remaining -= 3; }
+            {
+                t_perm = mod_of_mult(t_perm, binomial(remaining, 3), MOD); 
+                remaining -= 3; 
+            }
 
             else if(b == TripleBranched)
-                { t_perm *= 2 * binomial(remaining, 3); remaining -= 3; }
+            {
+                t_perm = mod_of_mult(t_perm, 2 * binomial(remaining, 3), MOD); 
+                remaining -= 3; 
+            }
 
             else
             {
@@ -293,7 +328,7 @@ uint64_t calculate_permutations(unsigned n_seqs, set<unsigned> * dependencies, s
                     a[j] = *it;
                     ++j;
                 }
-                t_perm *= heap_iterate_permutation_filtering(a, n, dependencies, n_seqs);
+                t_perm = mod_of_mult(t_perm, heap_iterate_permutation_filtering(a, n, dependencies, n_seqs), MOD);
                 remaining -= (uint64_t) n;
             }
 
@@ -339,19 +374,9 @@ int main(int argc, char **argv) {
     for(unsigned i=0; i<sequences.size(); i++){
         set<unsigned>::iterator it;
         for(it = dependencies[i].begin(); it != dependencies[i].end(); ++it){
-            //cout << i << " " << *it << endl;
+            //cout << i << " " << *it << endl; // Enable this print fro graph-like output
             ++n_substrings;
         }
-    }
-
-    // Prints table of relatedness
-    for(unsigned i=0; i<sequences.size(); i++){
-        set<unsigned>::iterator it;
-        cout << "### Seq " << i << " is related to:\n";
-        for(it = relationships[i].begin(); it != relationships[i].end(); ++it){
-            cout << *it << " ";
-        }
-        cout << "\n";
     }
 
     // Expand relationships to find lose braids
@@ -365,42 +390,28 @@ int main(int argc, char **argv) {
 
     // Finds longest chain and prints expansion table
     unsigned longest_chain = 0;
-    cout << "Expansions: \n";
     for(unsigned i=0; i<sequences.size(); i++){
         if((expanded[i].size() + 1) > longest_chain)
             longest_chain = expanded[i].size() + 1;
-        set<unsigned>::iterator it;
-        cout << "### Seq " << i << " is expanded to:\n";
-        for(it = expanded[i].begin(); it != expanded[i].end(); ++it){
-            cout << *it << " ";
-        }
-        cout << "\n";
     }
     
-    // Prints the type of braids detected
-    cout << "\n\n\nBRAIDS\n";
+    // Prints the type of braids detected (commented for clarity)
+    /*
+    cout << "Braid type: \n";
     for(unsigned i=0; i<sequences.size(); i++){
-        cout << "Seq " << i << " is type: " << detect_braid_type(i, dependencies, expanded) << endl;
+        cout << "Sequence " << i << " is of type: " << detect_braid_type(i, dependencies, expanded) << endl;
     }
+    */
     
     uint64_t t_perm = calculate_permutations(sequences.size(), dependencies, expanded);
 
-    cout << "Number of substrings:      " << n_substrings << endl;
-    cout << "Longest substring chain:   " << longest_chain << endl;
-    cout << "Total permutations:        " << t_perm << endl;
-
+    cout << "Number of substrings:              " << n_substrings << endl;
+    cout << "Longest substring chain:           " << longest_chain << endl;
+    cout << "Total permutations (mod 100003):   " << t_perm << endl;
 
     delete [] relationships;
     delete [] dependencies;
     delete [] expanded;
-
-    /*
-    vector<sequence> sequences;
-    int ans;
-    read_fasta(argv[1], sequences);
-    // Good luck and have fun!
-    // ans = your code
-    printf("Number of different ways to sort the fasta file (mod 100003) is: %d\n", ans);
-    */
+    
     return 0;
 }

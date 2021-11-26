@@ -1,6 +1,6 @@
 # DNAPERMUT
 
-DNAPERMUT is a method to compute all partially-ordered permutations of `n` sequences with a reduced complexity factor. Instead of computing the permutations in `O(n!)` it will take `O(k1! + k2! + ... + kj!)` where each `ki` is an individual group of sequences, e.g. if three sequences are related to only each other but not the rest (via substring operator) then ...
+DNAPERMUT is a method to compute all partially-ordered permutations of `n` sequences with a reduced complexity factor. Instead of computing the permutations in `O(n!)` it will take `O(k1! + k2! + ... + kj!)` where each `ki` is an individual group of sequences, e.g. if three sequences are related to only each other but not the rest (via substring operator) then we can compute them separately and then multiply together the total number of permutations.
 
 ## Install
 
