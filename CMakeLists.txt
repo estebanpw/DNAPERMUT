@@ -10,3 +10,7 @@ find_package (seqan3 3.0 REQUIRED)
 # build app with seqan3
 add_executable (dnapermut dnapermut.cpp)
 target_link_libraries (dnapermut seqan3::seqan3)
+
+# Check support for C++20
+set_property(TARGET dnapermut PROPERTY CXX_STANDARD 20)
+set_property(TARGET dnapermut PROPERTY CXX_STANDARD_REQUIRED ON)
