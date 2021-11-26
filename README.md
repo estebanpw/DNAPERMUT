@@ -36,3 +36,13 @@ And thats it!
 The method works for any number of sequences, however, keep in mind that highly tangled sequences (i.e. if there are big groups of substrings) will require O(k!) computation.
 
 `./dnapermut <fasta>`
+
+This will generate an output such as:
+
+```
+Number of substrings:              32
+Longest substring chain:           5
+Total permutations (mod 100003):   88285
+```
+
+Where the `Number of substrings` corresponds to how many input strings (sequences) from the FASTA dataset are substring from another sequence in the very same FASTA. The `Longest substring chain` is the biggest group of sequences that are related by substring dependencies.
